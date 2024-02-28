@@ -1,0 +1,2 @@
+python-keycloak == 3.7.0
+pyjwt == 2.3.0
