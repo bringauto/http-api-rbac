@@ -19,6 +19,7 @@ class AuthenticationObj:
             client_secret_key=secret_key
         )
 
+
     def get_authentication_url(self) -> str:
         """Get keycloak url used for authentication."""
         auth_url = self._oid.auth_url(
@@ -27,11 +28,13 @@ class AuthenticationObj:
             state=self._state
         )
         return auth_url
+
     
     def device_get_authentication(self) -> dict:
         """Get a json for authenticating a device on keycloak."""
         auth_url_device = self._oid.device()
         return auth_url_device
+
 
     def token_get(self, state: str|None, session_state: str|None, iss: str|None, code: str|None) -> dict:
         """Get token from keycloak using a code returned by keycloak."""
@@ -47,6 +50,7 @@ class AuthenticationObj:
             redirect_uri=self._callback
         )
         return token
+
     
     def device_token_get(self, device_code: str) -> dict:
         """Get token from keycloak using a device code returned by keycloak."""
@@ -55,6 +59,7 @@ class AuthenticationObj:
             device_code=device_code
         )
         return token
+
     
     def token_refresh(self, refresh_token: str) -> dict:
         """Get a new token from keycloak using the refresh token."""
