@@ -1,5 +1,7 @@
-from keycloak import KeycloakOpenID
-from urllib.parse import urlparse
+import urllib.parse as _url
+
+from keycloak import KeycloakOpenID # type: ignore
+
 
 class AuthenticationObj:
     def set_config(self, keycloak_url: str, client_id: str, secret_key: str, scope: str, realm: str, base_uri: str) -> None:
@@ -7,7 +9,7 @@ class AuthenticationObj:
         self._keycloak_url = keycloak_url
         self._scope = scope
         self._realm_name = realm
-        self._callback = base_uri + "/token_get"
+        self._callback = appended_uri(base_uri, "token_get")
         self._state = "state"
 
         self._oid = KeycloakOpenID(
@@ -31,12 +33,12 @@ class AuthenticationObj:
         auth_url_device = self._oid.device()
         return auth_url_device
 
-    def token_get(self, state: str, session_state: str, iss: str, code: str) -> dict:
+    def token_get(self, state: str|None, session_state: str|None, iss: str|None, code: str|None) -> dict:
         """Get token from keycloak using a code returned by keycloak."""
         if state != self._state:
             raise Exception("Invalid state")
         
-        if urlparse(iss).geturl() != self._keycloak_url + "/realms/" + self._realm_name:
+        if _url.urlparse(iss).geturl() != appended_uri(self._keycloak_url, "realms", self._realm_name):
             raise Exception("Invalid issuer")
 
         token = self._oid.token(
@@ -60,3 +62,17 @@ class AuthenticationObj:
             refresh_token=refresh_token
         )
         return token
+
+
+def appended_uri(uri: str, *appended: str) -> str:
+    """Join URI parts.
+
+    This function return valid URI composed of multiple parts.
+    """
+    if uri.endswith("//"):
+        raise ValueError("Invalid URI: " + uri)
+    if appended and not uri.endswith("/"):
+        uri += "/"
+    for part in appended:
+        uri = _url.urljoin(base=uri+"/", url=part.strip("/"))
+    return uri
