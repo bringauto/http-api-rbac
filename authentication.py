@@ -49,6 +49,8 @@ class AuthenticationObj:
             code=code,
             redirect_uri=self._callback
         )
+        if token["session_state"] != session_state:
+            raise Exception("Invalid session state returned in token response")
         return token
 
     

@@ -21,7 +21,7 @@ class AuthorizationObj:
             decoded_token = jwt.decode(token, self._public_key, algorithms=['RS256'], audience='account')
         except:
             return None
-        return get_scopes_from_token(decoded_token)
+        return self.get_scopes_from_token(decoded_token)
 
 
     def validate_scopes(self, required_scopes: list, token_scopes: dict) -> bool:
@@ -39,5 +39,8 @@ class AuthorizationObj:
             decoded_token = jwt.decode(token, self._public_key, algorithms=['RS256'], audience='account')
         except:
             return False
-        required_scope = "/resources/development/fleet-protocol-http-api/" + resource_name + "/" + resource_operation + "/" + resource_id
-        return validate_scopes(required_scope, get_scopes_from_token(decoded_token))
+        #TODO decide how to construct required scopes
+        required_scope = "/resources/fleet-protocol-http-api/" + resource_name + "/" + resource_operation + "/" + resource_id
+        #required_scope = "/tenants/" + tenant_name + "/" + environment
+
+        return self.validate_scopes(required_scope, self.get_scopes_from_token(decoded_token))
