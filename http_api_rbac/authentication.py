@@ -3,13 +3,29 @@ import urllib.parse as _url
 from keycloak import KeycloakOpenID # type: ignore
 
 
-class AuthenticationObj:
-    def set_config(self, keycloak_url: str, client_id: str, secret_key: str, scope: str, realm: str, base_uri: str) -> None:
-        """Set configuration for keycloak authentication and initialize KeycloakOpenID."""
+class Authentication:
+    def __init__(self, keycloak_url: str, client_id: str, secret_key: str, realm: str, callback_uri: str,
+                 scope: str = "email") -> None:
+        """
+        Parameters
+        ----------
+        keycloak_url : str
+            Keycloak server URL.
+        client_id : str
+            Keycloak client ID.
+        secret_key : str
+            Keycloak client secret key.
+        realm : str
+            Keycloak realm name.
+        callback_uri : str
+            URI which keycloak will redirect to after authentication.
+        scope : str
+            Scopes for authentication are not yet implemented. Default is "email".
+        """
         self._keycloak_url = keycloak_url
         self._scope = scope
         self._realm_name = realm
-        self._callback = appended_uri(base_uri, "token_get")
+        self._callback = callback_uri
         self._state = "state"
 
         self._oid = KeycloakOpenID(
@@ -21,7 +37,15 @@ class AuthenticationObj:
 
 
     def get_authentication_url(self) -> str:
-        """Get keycloak url used for authentication."""
+        """
+        Get keycloak url used for authentication.
+
+        Returns
+        -------
+        str
+            URL for keycloak authentication. After authentication is succesful, keycloak will redirect to the callback URI.
+        """
+
         auth_url = self._oid.auth_url(
             redirect_uri=self._callback,
             scope=self._scope,
@@ -31,17 +55,46 @@ class AuthenticationObj:
 
     
     def device_get_authentication(self) -> dict:
-        """Get a json for authenticating a device on keycloak."""
+        """
+        Get a json for authenticating a device on keycloak.
+        
+        Returns
+        -------
+        dict
+            JSON containing the device authentication URL and the device code.\n
+            'verification_uri_complete' contains the URL to be used by the user to authenticate the device.\n
+            'device_code' is then used to get a token for the authenticated device.
+        """
         auth_url_device = self._oid.device()
         return auth_url_device
 
 
     def token_get(self, state: str|None, session_state: str|None, iss: str|None, code: str|None) -> dict:
-        """Get token from keycloak using a code returned by keycloak."""
+        """
+        Get token from keycloak using a code returned by keycloak.
+        
+        Parameters
+        ----------
+        state : str
+            State returned by keycloak.
+        session_state : str
+            Session state returned by keycloak.
+        iss : str
+            Issuer returned by keycloak.
+        code : str
+            Code returned by keycloak.
+
+        Returns
+        -------
+        dict
+            JSON containing the token.\n
+            'access_token' contains the generated JWT token.\n
+            'refresh_token' contains the refresh token.
+        """
         if state != self._state:
             raise Exception("Invalid state")
         
-        if _url.urlparse(iss).geturl() != appended_uri(self._keycloak_url, "realms", self._realm_name):
+        if _url.urlparse(iss).geturl() != _appended_uri(self._keycloak_url, "realms", self._realm_name):
             raise Exception("Invalid issuer")
 
         token = self._oid.token(
@@ -55,7 +108,21 @@ class AuthenticationObj:
 
     
     def device_token_get(self, device_code: str) -> dict:
-        """Get token from keycloak using a device code returned by keycloak."""
+        """
+        Get token from keycloak using a device code returned by keycloak.
+        
+        Parameters
+        ----------
+        device_code : str
+            Device code obtained from device authentication.
+
+        Returns
+        -------
+        dict
+            JSON containing the token for the authenticated device.\n
+            'access_token' contains the generated JWT token.\n
+            'refresh_token' contains the refresh token.
+        """
         token = self._oid.token(
             grant_type="urn:ietf:params:oauth:grant-type:device_code",
             device_code=device_code
@@ -64,14 +131,28 @@ class AuthenticationObj:
 
     
     def token_refresh(self, refresh_token: str) -> dict:
-        """Get a new token from keycloak using the refresh token."""
+        """
+        Get a new token from keycloak using the refresh token.
+        
+        Parameters
+        ----------
+        refresh_token : str
+            Refresh token obtained from previous token response.
+
+        Returns
+        -------
+        dict
+            JSON containing the new token.\n
+            'access_token' contains the generated JWT token.\n
+            'refresh_token' contains the refresh token.
+        """
         token = self._oid.refresh_token(
             refresh_token=refresh_token
         )
         return token
 
 
-def appended_uri(uri: str, *appended: str) -> str:
+def _appended_uri(uri: str, *appended: str) -> str:
     """Join URI parts.
 
     This function return valid URI composed of multiple parts.
