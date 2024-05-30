@@ -2,14 +2,21 @@ import jwt
 
 
 class Authorization:
-    def __init__(self, public_key: str) -> None:
+    def __init__(self, public_key: str, client_id: str) -> None:
         """
         Parameters
         ----------
         public_key : str
             Public key used to decode jwt tokens.
+        client_id : str
+            Client id used to validate the issuer of jwt tokens.
         """
+        if not public_key.startswith("-----BEGIN PUBLIC KEY-----"):
+            public_key = "-----BEGIN PUBLIC KEY-----\n" + public_key
+        if not public_key.endswith("-----END PUBLIC KEY-----"):
+            public_key = public_key + "\n-----END PUBLIC KEY-----"
         self._public_key = public_key
+        self._client_id = client_id
         
 
     def _get_scopes_from_token(self, decoded_token: dict) -> dict:
@@ -30,6 +37,26 @@ class Authorization:
         for scope in decoded_token["group"]:
             return_list.append(scope)
         return {'scopes': return_list}
+    
+
+    def _valid_token_issuer(self, decoded_token: dict) -> bool:
+        """
+        Validates the issuer of a decoded jwt token.
+        
+        Parameters
+        ----------
+        decoded_token : dict
+            Decoded jwt token.
+
+        Returns
+        -------
+        bool
+            True if issuer is valid, False otherwise.
+        """
+        for origin in decoded_token["allowed-origins"]:
+            if origin == self._client_id:
+                return True
+        return False
 
 
     def decode_token_and_get_scopes(self, token: str) -> dict|None:
@@ -49,6 +76,8 @@ class Authorization:
         try:
             decoded_token = jwt.decode(token, self._public_key, algorithms=['RS256'], audience='account')
         except:
+            return None
+        if not self._valid_token_issuer(decoded_token):
             return None
         return self._get_scopes_from_token(decoded_token)
 
@@ -90,12 +119,14 @@ class Authorization:
         Returns
         -------
         bool
-            True if token holder has access to resource, False otherwise.
+            True if token holder has access to resource, False otherwise. Also False if token is invalid.
         """
         token = token.replace("Bearer ", "")
         try:
             decoded_token = jwt.decode(token, self._public_key, algorithms=['RS256'], audience='account')
         except:
+            return False
+        if not self._valid_token_issuer(decoded_token):
             return False
         
         required_scopes = [
